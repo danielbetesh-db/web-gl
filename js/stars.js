@@ -1,0 +1,247 @@
+var scene, camera, renderer, controls, light, light2;
+var width = window.innerWidth,
+    height = window.innerHeight;
+var sun, mercury;
+var startList = [];
+var starsDistance = 400;
+var sunSize = 400;
+var saucers = [];
+var fireParams = {
+    color1: '#ffffff',
+    color2: '#ffa000',
+    color3: '#000000',
+    colorBias: 0.8,
+    burnRate: 0.35,
+    diffuse: 1.33,
+    viscosity: 0.25,
+    expansion: -0.25,
+    swirl: 50.0,
+    drag: 0.35,
+    airSpeed: 12.0,
+    windX: 0.0,
+    windY: 0.75,
+    speed: 500.0,
+    massConservation: false
+};
+
+var purpleList = [
+    "#E6E6FA",
+    "#D8BFD8",
+    "#DDA0DD",
+    "#EE82EE",
+    "#DA70D6",
+    "#FF00FF",
+    "#BA55D3",
+    "#9370DB",
+    "#8A2BE2",
+    "#9400D3",
+    "#8B008B",
+    "#800080",
+    "#4B0082"
+]
+
+
+function init() {
+    renderer = new THREE.WebGLRenderer({antialias: true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(75, width / height, 1, 20000);
+
+    camera.position.z = 3000;
+    camera.position.y = 500;
+    //camera = new THREE.OrthographicCamera( width / - 2, width / 2, height / 2, height / - 2, 1, 2000 );
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableKeys = false;
+    controls.update();
+
+
+
+    light = new THREE.AmbientLight(0xffffff, 0.5); // soft white light
+    scene.add(light);
+
+    light2 = new THREE.PointLight(0xffffff, 5, 0); // soft white light
+    light2.position.set(0, 0, 0);
+    scene.add(light2);
+
+    addStar('images/sun.jpg', sunSize);
+    addStar('images/mercury.jpg', 30);
+    addStar('images/venus.jpg', 60);
+    addStar('images/earth.jpg', 70);
+    addStar('images/mars.jpg', 50);
+    addStar('images/jupiter.jpg', 90);
+    addStar('images/saturn.jpg', 80);
+    addStar('images/uranus.jpg', 70);
+    addStar('images/neptune.jpg', 70);
+    addStar('images/pluto.jpg', 25);
+
+    starsView(5000);
+    loadSun();
+    loadSaucer();
+}
+
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    rotateOverTheSun(10);
+
+
+    rotateStars();
+    spinSaucers();
+    moveSaucers();
+    //rotateAboutPoint(startList[1], 200, 100, 200, true);
+    renderer.clear();
+    renderer.render(scene, camera);
+}
+
+
+var firstTime = true;
+function rotateOverTheSun(speed) {
+    for (var i = 1; i < startList.length; i++) {
+        var sp = Date.now() * (i * 0.00001);
+        var distance = starsDistance * ((i * 0.3) + 1);
+        startList[i].position.set(
+            Math.cos(sp) * (distance),
+            0,
+            Math.sin(sp) * (distance)
+        );
+        if (firstTime) {
+            addOrbit(distance);
+        }
+    }
+    firstTime = false;
+}
+
+
+function loadSun() {
+    var scale = 4100;
+    var loader = new THREE.GLTFLoader();
+    loader.load( 'images/3dsun.glb', function ( gltf ) {
+        mesh = gltf.scene;
+
+        scene.add( mesh );
+        mesh.scale.set( scale, scale, scale );
+    } );
+}
+
+var saucersIndex = 0;
+var maxSoucers = 2;
+function loadSaucer() {
+    saucersIndex++;
+    if(saucersIndex > maxSoucers) return;
+    var scale = 150;
+    var loader = new THREE.GLTFLoader();
+    loader.load( 'images/saucer.glb', function ( gltf ) {
+        mesh = gltf.scene;
+        console.log(gltf);
+
+
+        mesh.scale.set( scale, scale, scale );
+        mesh.position.set( (Math.random() * 5000) - 2500 , (Math.random() * 5000) - 2500, (Math.random() * 5000) - 2500 );
+        mesh.rotation.x = (Math.random() * 1) - 0.5;
+        scene.add( mesh );
+        saucers.push(mesh);
+        loadSaucer();
+    } );
+}
+function moveSaucers() {
+    for(var i = 0; i < saucers.length; i++){
+        saucers[i].position.x += saucers[i].rotation.x * -50;
+        if(saucers[i].position.x > 2500){
+            saucers[i].position.x = -2500;
+        }
+        if(saucers[i].position.x < -2500){
+            saucers[i].position.x = 2500;
+        }
+
+    }
+}
+
+
+function spinSaucers() {
+    for(var i = 0; i < saucers.length; i++){
+        saucers[i].rotation.y += 0.05;
+    }
+}
+
+function starsView(count) {
+    for (var i = 0; i < count; i++) {
+        var geo = new THREE.SphereGeometry(2, 5, 5);
+        var mat = new THREE.MeshBasicMaterial({color : 0xffffff});
+        var star = new THREE.Mesh(geo, mat);
+        star.position.x = Math.random() * 5000 - 2500;
+        star.position.y = Math.random() * 5000 - 2500;
+        star.position.z = Math.random() * 5000 - 2500;
+        scene.add(star);
+    }
+}
+
+
+function addStar(texture, size) {
+    var texture = new THREE.TextureLoader().load(texture);
+    var material = new THREE.MeshLambertMaterial({map: texture, emissive: 20});
+    if (!startList.length) {
+        var material = new THREE.MeshBasicMaterial({map: texture});
+    }
+    var obj = new THREE.Mesh(
+        new THREE.SphereBufferGeometry(size, 100, 100),
+        material
+    );
+    obj.rotation.z = 50;
+    startList.push(obj);
+    scene.add(obj);
+}
+
+function rotateStars() {
+    for (var i = 1; i < startList.length; i++) {
+        startList[i].rotation.y += 0.01;
+    }
+}
+
+function addOrbit(radius) {
+    var resolution = 170;
+    var size = 360 / resolution;
+    var geometry = new THREE.Geometry();
+    var material = new THREE.LineBasicMaterial({color: "#3a3a3a"});
+
+    for (var i = 0; i <= resolution; i++) {
+        var segment = ( i * size ) * Math.PI / 180;
+        var vector = new THREE.Vector3(new THREE.Vector3(Math.cos(segment) * radius, Math.sin(segment) * radius), 0);
+        geometry.vertices.push(vector.x);
+    }
+
+    var line = new THREE.Line(geometry, material);
+    line.position.x = 0;
+    line.position.y = 0;
+    line.rotation.x = 1.55;
+    scene.add(line);
+};
+
+function rotateObjects() {
+    for (var i = 0; i < scene.children.length; i++) {
+        if (scene.children[i].type == "Mesh") {
+            scene.children[i].rotation.x += Math.random() * 0.01;
+            scene.children[i].rotation.y += Math.random() * 0.01;
+            scene.children[i].rotation.z += Math.random() * 0.01;
+        }
+    }
+}
+
+
+function onWindowResize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    renderer.setSize(width, height);
+
+}
+
+window.addEventListener('resize', onWindowResize, false);
+
+init();
+animate();
+
+
